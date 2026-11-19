@@ -1,0 +1,38 @@
+NEW PILIPINO VERSION BIBLE — BUILD USING ONLY AN ANDROID PHONE
+
+You do not need Android Studio or a computer. This project includes a GitHub Actions
+workflow that builds the APK in the cloud.
+
+WHAT YOU NEED
+- Android phone and browser
+- Free GitHub account
+- The ZIP file for this project
+
+STEPS
+1. Download this ZIP to your phone and extract it using your phone's Files app.
+2. In your browser, sign in to https://github.com
+3. Create a new repository. Name it: npv-bible-android
+   You can choose Public or Private. Do not add a README or license during creation.
+4. Open the new empty repository. Choose Add file > Upload files.
+5. Upload the CONTENTS of the extracted project folder (not the ZIP itself).
+   Make sure the .github folder is included. If the phone file picker hides
+   dot-folders, use GitHub's web editor to create:
+   .github/workflows/build-apk.yml
+   and paste the contents of the included build-apk.yml file.
+6. Commit the uploaded files to the main branch.
+7. Open the repository's Actions tab. Select "Build NPV Bible APK".
+8. If it has not started automatically, tap "Run workflow" > "Run workflow".
+9. Wait for the build to finish successfully (green check mark).
+10. Open that workflow run, scroll to Artifacts, and download
+    New-Pilipino-Version-Bible-APK.
+11. Extract the downloaded artifact ZIP. Tap app-debug.apk to install.
+    Android may ask you to allow installation from your browser or Files app.
+    Only allow installation for this APK you built from your own repository.
+
+NOTES
+- The APK is a debug build for testing, not a Play Store release.
+- The app contains the NPV SQLite database and reads it offline.
+- Keep the repository private if you do not want to publish the source/database.
+- GitHub's menus may look slightly different on mobile; if uploading folders is
+  difficult, upload files in batches and ensure .github/workflows/build-apk.yml
+  is present at exactly that path.
