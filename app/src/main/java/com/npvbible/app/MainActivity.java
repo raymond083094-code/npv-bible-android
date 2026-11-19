@@ -13,6 +13,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import android.widget.*;
@@ -83,16 +84,28 @@ public class MainActivity extends Activity {
     private LinearLayout column() { LinearLayout l=new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL); return l; }
     private void pad(View v,int l,int t,int r,int b){v.setPadding(l,t,r,b);}
     private void buildShell() {
-        root=column(); root.setBackgroundColor(bg()); setContentView(root);
-        topBar=row(); pad(topBar,18,12,18,8);
-        LinearLayout brand=column(); TextView name=text("NPV Bible",23,true); name.setTextColor(dark?gold:Color.rgb(125,85,15));
+        root=column(); root.setBackgroundColor(bg());
+        // Keep content clear of Android status/navigation bars on edge-to-edge devices.
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int left = insets.getSystemWindowInsetLeft();
+            int top = insets.getSystemWindowInsetTop();
+            int right = insets.getSystemWindowInsetRight();
+            int bottom = insets.getSystemWindowInsetBottom();
+            view.setPadding(left, top, right, bottom);
+            return insets;
+        });
+        setContentView(root);
+        root.requestApplyInsets();
+        topBar=row(); pad(topBar,18,10,18,8);
+        LinearLayout brand=column(); TextView name=text("NPV Bible",21,true); name.setTextColor(dark?gold:Color.rgb(125,85,15));
         brand.addView(name); brand.addView(text("New Pilipino Version",12,false));
         topBar.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         Button theme=button(dark?"☀":"☾"); topBar.addView(theme);
         theme.setOnClickListener(v->{dark=!dark;prefs.edit().putBoolean("dark",dark).apply();renderPage();});
         root.addView(topBar);
         body=column(); root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
-        bottomBar=row(); bottomBar.setGravity(Gravity.CENTER); bottomBar.setBackgroundColor(panel()); pad(bottomBar,4,6,4,6);
+        bottomBar=row(); bottomBar.setGravity(Gravity.CENTER); bottomBar.setBackgroundColor(panel()); pad(bottomBar,6,5,6,5);
+        bottomBar.setElevation(8);
         root.addView(bottomBar);
         addNav("⌂","Home","home"); addNav("▤","Bibliya","bible"); addNav("★","Paborito","saved"); addNav("✎","Mga Tala","notes"); addNav("☰","Higit Pa","more");
     }
@@ -129,18 +142,18 @@ public class MainActivity extends Activity {
     private Set<String> getSet(String k){return new HashSet<>(prefs.getStringSet(k,new HashSet<>()));}
     private void saveSet(String k,Set<String>s){prefs.edit().putStringSet(k,new HashSet<>(s)).apply();}
     private void addHeader(String heading,String caption) {
-        LinearLayout h=column(); pad(h,18,12,18,10); h.addView(text(heading,24,true));
+        LinearLayout h=column(); pad(h,18,12,18,10); h.addView(text(heading,21,true));
         if(caption!=null)h.addView(text(caption,13,false)); body.addView(h);
     }
     private void addCard(View v) {
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(14,6,14,8);
-        v.setBackground(shape(panel(),22,dark?Color.rgb(58,58,58):Color.rgb(236,225,204))); pad(v,14,12,14,12); body.addView(v,lp);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(16,5,16,7);
+        v.setBackground(shape(panel(),22,dark?Color.rgb(58,58,58):Color.rgb(236,225,204))); pad(v,16,12,16,12); body.addView(v,lp);
     }
     private void showHome() {
         addHeader("Magandang araw!","Basahin at pagnilayan ang Salita ng Diyos.");
-        LinearLayout hero=column(); hero.setBackground(shape(dark?Color.rgb(70,54,25):Color.rgb(247,218,151),24,0)); pad(hero,20,20,20,20);
+        LinearLayout hero=column(); hero.setBackground(shape(dark?Color.rgb(70,54,25):Color.rgb(247,218,151),24,0)); pad(hero,18,16,18,16);
         TextView ey=text("TALATA NG ARAW",12,true); ey.setTextColor(Color.rgb(110,72,12)); hero.addView(ey);
-        hero.addView(text("“Sapagkat ako ang daan, at ang katotohanan, at ang buhay.”",20,true));
+        hero.addView(text("“Sapagkat ako ang daan, at ang katotohanan, at ang buhay.”",18,true));
         TextView ref=text("Juan 14:6",13,true); ref.setTextColor(Color.rgb(110,72,12)); hero.addView(ref);
         Button read=button("Magpatuloy sa pagbabasa  →"); hero.addView(read);
         read.setOnClickListener(v->{page="bible";renderPage();});
@@ -202,7 +215,7 @@ public class MainActivity extends Activity {
             note.setOnClickListener(view->editNote(currentBook,currentChapter,v));
             hi.setOnClickListener(view->{Set<String>s=getSet("highlights");if(s.contains(k))s.remove(k);else s.add(k);saveSet("highlights",s);showVerses();});
             card.setOnLongClickListener(view->{verseActions(currentBook,currentChapter,v,scripture);return true;});
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(14,4,14,7);pad(card,12,10,12,8);verseList.addView(card,lp);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(16,4,16,7);pad(card,12,10,12,8);verseList.addView(card,lp);
         } c.close();
     }
     private Button smallAction(String s){Button b=button(s);b.setMinWidth(42);b.setMinimumWidth(42);b.setTextSize(15);return b;}
