@@ -24,13 +24,14 @@ import java.util.*;
 public class MainActivity extends Activity {
     private SQLiteDatabase db;
     private SharedPreferences prefs;
-    private LinearLayout root, topBar, body, bottomBar, verseList;
+    private LinearLayout root, topBar, body, bottomBar, verseList, pageContent;
     private TextView title, subtitle;
     private Spinner bookSpinner, chapterSpinner;
     private EditText searchInput;
     private int currentBook = 1, currentChapter = 1, textSize = 19;
     private boolean dark = false;
     private String page = "home";
+    private boolean showOldTestament = true;
     private final int gold = Color.rgb(224, 169, 48);
     private final int cream = Color.rgb(250, 246, 236);
     private final int ink = Color.rgb(38, 35, 31);
@@ -121,9 +122,11 @@ public class MainActivity extends Activity {
         addNav("★","Paborito","saved"); addNav("✎","Mga Tala","notes"); addNav("☰","Higit Pa","more");
     }
     private void renderPage() {
+        pageContent = null;
         root.setBackgroundColor(bg()); topBar.setBackgroundColor(bg()); body.removeAllViews();
         refreshNav();
         if(page.equals("home")) showHome();
+        else if(page.equals("books")) showBooks();
         else if(page.equals("bible")) showBible();
         else if(page.equals("saved")) showSaved();
         else if(page.equals("notes")) showNotes();
@@ -141,15 +144,22 @@ public class MainActivity extends Activity {
     private String key(int b,int ch,int v){return b+":"+ch+":"+v;}
     private Set<String> getSet(String k){return new HashSet<>(prefs.getStringSet(k,new HashSet<>()));}
     private void saveSet(String k,Set<String>s){prefs.edit().putStringSet(k,new HashSet<>(s)).apply();}
+    private LinearLayout contentTarget() { return pageContent != null ? pageContent : body; }
     private void addHeader(String heading,String caption) {
         LinearLayout h=column(); pad(h,18,12,18,10); h.addView(text(heading,21,true));
-        if(caption!=null)h.addView(text(caption,13,false)); body.addView(h);
+        if(caption!=null)h.addView(text(caption,13,false)); contentTarget().addView(h);
     }
     private void addCard(View v) {
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(16,5,16,7);
-        v.setBackground(shape(panel(),22,dark?Color.rgb(58,58,58):Color.rgb(236,225,204))); pad(v,16,12,16,12); body.addView(v,lp);
+        v.setBackground(shape(panel(),22,dark?Color.rgb(58,58,58):Color.rgb(236,225,204))); pad(v,16,12,16,12); contentTarget().addView(v,lp);
     }
     private void showHome() {
+        // Make the complete home screen scrollable so the full book list is reachable on phones.
+        ScrollView homeScroll = new ScrollView(this);
+        homeScroll.setFillViewport(true);
+        pageContent = column();
+        homeScroll.addView(pageContent);
+        body.addView(homeScroll, new LinearLayout.LayoutParams(-1,0,1));
         addHeader("Magandang araw!","Basahin at pagnilayan ang Salita ng Diyos.");
         LinearLayout hero=column(); hero.setBackground(shape(dark?Color.rgb(70,54,25):Color.rgb(247,218,151),24,0)); pad(hero,18,16,18,16);
         TextView ey=text("TALATA NG ARAW",12,true); ey.setTextColor(Color.rgb(110,72,12)); hero.addView(ey);
@@ -167,6 +177,63 @@ public class MainActivity extends Activity {
         String[][] opts={{"★","Mga Paborito","saved"},{"⌕","Maghanap","search"},{"✎","Mga Tala","notes"}};
         for(String[] o:opts){Button b=button(o[0]+" "+o[1]);shortcuts.addView(b,new LinearLayout.LayoutParams(0,-2,1));b.setOnClickListener(v->{if(o[2].equals("search"))showSearchDialog();else{page=o[2];renderPage();}});}
         addCard(shortcuts);
+
+        // A single clear entry point opens the separate Old/New Testament book list.
+        addHeader("Mga Aklat ng Bibliya","Piliin ang aklat na nais mong basahin.");
+        LinearLayout booksCard=column();
+        TextView booksInfo=text("66 na aklat  •  Lumang Tipan at Bagong Tipan",13,false);
+        booksCard.addView(booksInfo);
+        Button openBooks=button("📚  BUKSAN ANG MGA AKLAT  →");
+        openBooks.setTextSize(15);
+        LinearLayout.LayoutParams openLp=new LinearLayout.LayoutParams(-1,-2);
+        openLp.topMargin=10;
+        booksCard.addView(openBooks,openLp);
+        openBooks.setOnClickListener(v->{page="books";showOldTestament=true;renderPage();});
+        addCard(booksCard);
+        pageContent = null;
+    }
+
+    private void showBooks() {
+        ScrollView sc = new ScrollView(this);
+        pageContent = column();
+        sc.addView(pageContent);
+        body.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+        addHeader("Pumili ng Aklat","Piliin muna ang Lumang Tipan o Bagong Tipan.");
+        LinearLayout tabs=row();
+        Button oldTab=button("Lumang Tipan");
+        Button newTab=button("Bagong Tipan");
+        oldTab.setTextColor(showOldTestament ? gold : fg());
+        newTab.setTextColor(!showOldTestament ? gold : fg());
+        tabs.addView(oldTab,new LinearLayout.LayoutParams(0,-2,1));
+        tabs.addView(newTab,new LinearLayout.LayoutParams(0,-2,1));
+        addCard(tabs);
+        oldTab.setOnClickListener(v->{showOldTestament=true;renderPage();});
+        newTab.setOnClickListener(v->{showOldTestament=false;renderPage();});
+        addHeader(showOldTestament ? "Lumang Tipan" : "Bagong Tipan",showOldTestament ? "Genesis hanggang Malakias" : "Mateo hanggang Pahayag");
+        addBookGrid(showOldTestament);
+        pageContent = null;
+    }
+
+    private void addBookGrid(boolean oldTestament) {
+        LinearLayout grid = column();
+        ArrayList<Integer> visibleBooks = new ArrayList<>();
+        for (int id : bookIds) {
+            if (oldTestament ? id <= 39 : id >= 40) visibleBooks.add(id);
+        }
+        for (int i=0; i<visibleBooks.size(); i+=2) {
+            LinearLayout r = row();
+            for (int j=i; j<Math.min(i+2,visibleBooks.size()); j++) {
+                final int bookId = visibleBooks.get(j);
+                Button b = button(bookName(bookId)+"  ›");
+                b.setTextSize(13);
+                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0,-2,1);
+                bp.setMargins(3,3,3,3);
+                r.addView(b,bp);
+                b.setOnClickListener(v->{currentBook=bookId;currentChapter=1;page="bible";renderPage();});
+            }
+            grid.addView(r);
+        }
+        addCard(grid);
     }
     private void showBible() {
         addHeader("BIBLIYA","Piliin ang aklat at kabanata.");
@@ -278,17 +345,76 @@ public class MainActivity extends Activity {
         Button clear=button("I-reset ang reading history");addCard(clear);clear.setOnClickListener(v->{prefs.edit().remove("history").apply();Toast.makeText(this,"Na-reset ang history.",Toast.LENGTH_SHORT).show();});
     }
     private void showSearchDialog(){
-        EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Hal. pag-ibig, pananampalataya");
-        new AlertDialog.Builder(this).setTitle("Maghanap sa NPV Bible").setView(q).setPositiveButton("Hanap",(d,w)->search(q.getText().toString())).setNegativeButton("Kanselahin",null).show();
+        LinearLayout form = column();
+        pad(form,18,8,18,4);
+        EditText q = new EditText(this);
+        q.setSingleLine(true);
+        q.setHint("Salita o parirala, hal. pag-ibig");
+        form.addView(q);
+        TextView scopeLabel = text("Saklaw ng paghahanap",13,true);
+        pad(scopeLabel,0,10,0,3); form.addView(scopeLabel);
+        Spinner scope = new Spinner(this);
+        String[] scopes = {"Buong Bibliya (lahat ng aklat)","Isang aklat lamang"};
+        scope.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,scopes));
+        form.addView(scope);
+        TextView bookLabel = text("Pumili ng aklat",13,true);
+        pad(bookLabel,0,10,0,3); form.addView(bookLabel);
+        Spinner book = new Spinner(this);
+        book.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,bookLabels));
+        int currentIndex = bookIds.indexOf(currentBook);
+        if(currentIndex>=0) book.setSelection(currentIndex);
+        form.addView(book);
+        TextView hint = text("Tip: Isulat ang salita para hanapin ito. Gumamit ng panipi para sa eksaktong parirala, hal. \"pag-ibig ng Diyos\".",11,false);
+        pad(hint,0,8,0,0); form.addView(hint);
+        bookLabel.setVisibility(View.GONE); book.setVisibility(View.GONE);
+        scope.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(AdapterView<?> parent){}
+            public void onItemSelected(AdapterView<?> parent,View view,int position,long id){
+                int visibility = position==1 ? View.VISIBLE : View.GONE;
+                bookLabel.setVisibility(visibility); book.setVisibility(visibility);
+            }
+        });
+        new AlertDialog.Builder(this).setTitle("Maghanap sa NPV Bible").setView(form)
+            .setPositiveButton("Hanap",(d,w)->{
+                int selectedBook = book.getSelectedItemPosition()>=0 && book.getSelectedItemPosition()<bookIds.size() ? bookIds.get(book.getSelectedItemPosition()) : currentBook;
+                search(q.getText().toString(),scope.getSelectedItemPosition()==1,selectedBook);
+            }).setNegativeButton("Kanselahin",null).show();
     }
-    private void search(String query){
-        String q=query.trim();if(q.length()<2){Toast.makeText(this,"Mag-type ng hindi bababa sa 2 character.",Toast.LENGTH_SHORT).show();return;}
-        page="search";body.removeAllViews();refreshNav();addHeader("Mga resulta","Paghahanap: "+q);
+    private void search(String query, boolean restrictToBook, int selectedBook){
+        String q=query.trim();
+        if(q.length()<2){Toast.makeText(this,"Mag-type ng hindi bababa sa 2 character.",Toast.LENGTH_SHORT).show();return;}
+        boolean exactPhrase = q.length()>=2 && q.startsWith("\"") && q.endsWith("\"");
+        if(exactPhrase) q=q.substring(1,q.length()-1).trim();
+        if(q.isEmpty()){Toast.makeText(this,"Walang laman ang hinahanap.",Toast.LENGTH_SHORT).show();return;}
+        page="search";body.removeAllViews();refreshNav();
+        String scopeText = restrictToBook ? bookName(selectedBook) : "Buong Bibliya";
+        addHeader("Mga resulta", "Hanap: "+q+"  •  "+scopeText);
         ScrollView sc=new ScrollView(this);LinearLayout results=column();sc.addView(results);body.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
-        Cursor c=db.rawQuery("SELECT Book,Chapter,Verse,Scripture FROM Bible WHERE Scripture LIKE ? ORDER BY Book,Chapter,Verse LIMIT 200",new String[]{"%"+q+"%"});
-        int count=0;while(c.moveToNext()){int b=c.getInt(0),ch=c.getInt(1),v=c.getInt(2);String scripture=c.getString(3);
-            LinearLayout item=column();item.addView(text(ref(b,ch,v),15,true));item.addView(text(scripture,15,false));Button open=button("Buksan ang kabanata");item.addView(open);open.setOnClickListener(view->{currentBook=b;currentChapter=ch;page="bible";renderPage();});addCardTo(results,item);count++;
-        }c.close();if(count==0)addCardTo(results,text("Walang nahanap na resulta.",15,false));else addCardTo(results,text(count+" resulta (hanggang 200).",12,false));
+        StringBuilder sql = new StringBuilder("SELECT Book,Chapter,Verse,Scripture FROM Bible WHERE ");
+        ArrayList<String> args = new ArrayList<>();
+        if(restrictToBook){sql.append("Book=? AND ");args.add(String.valueOf(selectedBook));}
+        if(exactPhrase){sql.append("Scripture LIKE ?");args.add("%"+q+"%");}
+        else {
+            String[] terms=q.split("\\s+");
+            for(int i=0;i<terms.length;i++){
+                if(terms[i].trim().isEmpty()) continue;
+                if(i>0) sql.append(" AND ");
+                sql.append("Scripture LIKE ?");args.add("%"+terms[i].trim()+"%");
+            }
+        }
+        sql.append(" ORDER BY Book,Chapter,Verse LIMIT 500");
+        Cursor c=db.rawQuery(sql.toString(),args.toArray(new String[0]));
+        int count=0;
+        while(c.moveToNext()){
+            int b=c.getInt(0),ch=c.getInt(1),v=c.getInt(2);String scripture=c.getString(3);
+            LinearLayout item=column();item.addView(text(ref(b,ch,v),15,true));item.addView(text(scripture,15,false));
+            Button open=button("Buksan ang kabanata");item.addView(open);
+            open.setOnClickListener(view->{currentBook=b;currentChapter=ch;page="bible";renderPage();});
+            addCardTo(results,item);count++;
+        }
+        c.close();
+        if(count==0)addCardTo(results,text("Walang nahanap na resulta. Subukan ang ibang salita o piliin ang buong Bibliya.",14,false));
+        else addCardTo(results,text(count+" resulta"+(count==500?" (unang 500 lamang)":""),12,false));
     }
     private void addCardTo(LinearLayout target,View v){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(14,5,14,7);v.setBackground(shape(panel(),18,0));pad(v,14,12,14,12);target.addView(v,lp);}
     private void showMessage(String s){addHeader("NPV Bible",s);}
