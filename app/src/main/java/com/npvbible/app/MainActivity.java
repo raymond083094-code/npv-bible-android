@@ -28,9 +28,9 @@ public class MainActivity extends Activity {
     private ScrollView verseScroll;
     private int pendingVerseToFocus = -1;
     private TextView title, subtitle;
-    private Spinner bookSpinner, chapterSpinner;
+    private Spinner bookSpinner, chapterSpinner, verseSpinner;
     private EditText searchInput;
-    private int currentBook = 1, currentChapter = 1, textSize = 19;
+    private int currentBook = 1, currentChapter = 1, currentVerse = 1, textSize = 19;
     private boolean dark = false;
     private String page = "home";
     private final int gold = Color.rgb(224, 169, 48);
@@ -202,22 +202,66 @@ public class MainActivity extends Activity {
         addCard(grid);
     }
     private void showBible() {
-        addHeader("BIBLIYA","Piliin ang aklat at kabanata.");
+        addHeader("BIBLIYA","Piliin ang aklat, kabanata at talata.");
         LinearLayout selectors=row(); pad(selectors,14,2,14,8);
-        bookSpinner=new Spinner(this);bookSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,bookLabels));
+        bookSpinner=new Spinner(this);
+        bookSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,bookLabels));
         int bi=bookIds.indexOf(currentBook); if(bi>=0)bookSpinner.setSelection(bi);
         selectors.addView(bookSpinner,new LinearLayout.LayoutParams(0,-2,2));
-        chapterSpinner=new Spinner(this);selectors.addView(chapterSpinner,new LinearLayout.LayoutParams(0,-2,1));body.addView(selectors);
+
+        chapterSpinner=new Spinner(this);
+        selectors.addView(chapterSpinner,new LinearLayout.LayoutParams(0,-2,1));
+
+        verseSpinner=new Spinner(this);
+        selectors.addView(verseSpinner,new LinearLayout.LayoutParams(0,-2,1));
+        body.addView(selectors);
+
         loadChapterSpinner();
-        bookSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?>p){} public void onItemSelected(AdapterView<?>p,View v,int pos,long id){if(pos>=0&&pos<bookIds.size()){currentBook=bookIds.get(pos);currentChapter=1;loadChapterSpinner();showVerses();}}});
-        chapterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?>p){}public void onItemSelected(AdapterView<?>p,View v,int pos,long id){currentChapter=pos+1;showVerses();}});
+        loadVerseSpinner();
+
+        bookSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(AdapterView<?>p){}
+            public void onItemSelected(AdapterView<?>p,View v,int pos,long id){
+                if(pos>=0&&pos<bookIds.size()){
+                    currentBook=bookIds.get(pos);
+                    currentChapter=1;
+                    currentVerse=1;
+                    loadChapterSpinner();
+                    loadVerseSpinner();
+                    showVerses();
+                }
+            }
+        });
+        chapterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(AdapterView<?>p){}
+            public void onItemSelected(AdapterView<?>p,View v,int pos,long id){
+                if(pos>=0){
+                    currentChapter=pos+1;
+                    currentVerse=1;
+                    loadVerseSpinner();
+                    showVerses();
+                }
+            }
+        });
+        verseSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(AdapterView<?>p){}
+            public void onItemSelected(AdapterView<?>p,View v,int pos,long id){
+                if(pos>=0){
+                    currentVerse=pos+1;
+                    pendingVerseToFocus=currentVerse;
+                    showVerses();
+                }
+            }
+        });
+
         LinearLayout tools=row();pad(tools,14,2,14,8);
         Button search=button("⌕ Hanap");Button smaller=button("A−");Button bigger=button("A+");
         tools.addView(search,new LinearLayout.LayoutParams(0,-2,1));tools.addView(smaller);tools.addView(bigger);body.addView(tools);
         search.setOnClickListener(v->showSearchDialog());
         smaller.setOnClickListener(v->{textSize=Math.max(15,textSize-1);prefs.edit().putInt("textSize",textSize).apply();showVerses();});
         bigger.setOnClickListener(v->{textSize=Math.min(30,textSize+1);prefs.edit().putInt("textSize",textSize).apply();showVerses();});
-        verseScroll=new ScrollView(this);verseList=column();verseScroll.addView(verseList);body.addView(verseScroll,new LinearLayout.LayoutParams(-1,0,1));showVerses();
+        verseScroll=new ScrollView(this);verseList=column();verseScroll.addView(verseList);body.addView(verseScroll,new LinearLayout.LayoutParams(-1,0,1));
+        showVerses();
     }
     private void loadChapterSpinner(){
         if(chapterSpinner==null)return;
@@ -225,6 +269,16 @@ public class MainActivity extends Activity {
         ArrayList<String>a=new ArrayList<>();while(c.moveToNext())a.add(""+c.getInt(0));c.close();
         chapterSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,a));
         chapterSpinner.setSelection(Math.max(0,Math.min(currentChapter-1,a.size()-1)));
+    }
+    private void loadVerseSpinner(){
+        if(verseSpinner==null)return;
+        Cursor c=db.rawQuery("SELECT DISTINCT Verse FROM Bible WHERE Book=? AND Chapter=? ORDER BY Verse",
+                new String[]{""+currentBook,""+currentChapter});
+        ArrayList<String>a=new ArrayList<>();
+        while(c.moveToNext())a.add(""+c.getInt(0));
+        c.close();
+        verseSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,a));
+        if(!a.isEmpty())verseSpinner.setSelection(Math.max(0,Math.min(currentVerse-1,a.size()-1)));
     }
     private void showVerses(){
         if(verseList==null||db==null)return;
